@@ -281,7 +281,7 @@ private fun AppHeader(isPlaying: Boolean, onHistoryClick: () -> Unit) {
             )
             Spacer(Modifier.weight(1f))
             if (!isPlaying) {
-                TextButton(onClick = onHistoryClick) { Text("历史成绩") }
+                TextButton(onClick = onHistoryClick) { Text("训练数据") }
             }
         }
     }
@@ -620,6 +620,7 @@ private fun HistoryDialog(
     onClear: () -> Unit,
 ) {
     var confirmClear by remember { mutableStateOf(false) }
+    var selectedSection by rememberSaveable { mutableStateOf("statistics") }
     var selectedSize by rememberSaveable { mutableStateOf<Int?>(null) }
     val filteredScores = remember(scores, selectedSize) {
         selectedSize?.let { size -> scores.filter { it.gridSize == size } } ?: scores
@@ -648,7 +649,7 @@ private fun HistoryDialog(
                 ) {
                     TextButton(onClick = onDismiss) { Text("返回") }
                     Text(
-                        "历史成绩",
+                        "训练数据",
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
@@ -669,50 +670,86 @@ private fun HistoryDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     FilterChip(
-                        selected = selectedSize == null,
-                        onClick = { selectedSize = null },
-                        label = { Text("全部 ${scores.size}") },
+                        selected = selectedSection == "statistics",
+                        onClick = { selectedSection = "statistics" },
+                        label = {
+                            Text("趋势统计", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                        },
+                        modifier = Modifier.weight(1f),
                     )
-                    (MIN_GRID_SIZE..MAX_GRID_SIZE).forEach { size ->
-                        val count = scores.count { it.gridSize == size }
-                        FilterChip(
-                            selected = selectedSize == size,
-                            onClick = { selectedSize = size },
-                            label = { Text("${size}×${size}  $count") },
-                        )
-                    }
+                    FilterChip(
+                        selected = selectedSection == "records",
+                        onClick = { selectedSection = "records" },
+                        label = {
+                            Text("训练记录", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
 
-                if (filteredScores.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            if (scores.isEmpty()) "完成一局训练后，成绩会显示在这里。" else "该难度还没有成绩。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
+                if (selectedSection == "statistics") {
+                    TrainingStatisticsContent(
+                        scores = scores,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 } else {
-                    LazyColumn(
+                    Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 18.dp),
+                            .fillMaxSize(),
                     ) {
-                        itemsIndexed(
-                            items = filteredScores,
-                            key = { index, score -> if (score.id != 0L) score.id else "legacy-$index" },
-                        ) { index, score ->
-                            HistoryRow(score)
-                            if (index != filteredScores.lastIndex) HorizontalDivider()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(
+                                selected = selectedSize == null,
+                                onClick = { selectedSize = null },
+                                label = { Text("全部 ${scores.size}") },
+                            )
+                            (MIN_GRID_SIZE..MAX_GRID_SIZE).forEach { size ->
+                                val count = scores.count { it.gridSize == size }
+                                FilterChip(
+                                    selected = selectedSize == size,
+                                    onClick = { selectedSize = size },
+                                    label = { Text("${size}×${size}  $count") },
+                                )
+                            }
+                        }
+
+                        if (filteredScores.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    if (scores.isEmpty()) "完成一局训练后，成绩会显示在这里。" else "该难度还没有成绩。",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 18.dp),
+                            ) {
+                                itemsIndexed(
+                                    items = filteredScores,
+                                    key = { index, score -> if (score.id != 0L) score.id else "legacy-$index" },
+                                ) { index, score ->
+                                    HistoryRow(score)
+                                    if (index != filteredScores.lastIndex) HorizontalDivider()
+                                }
+                            }
                         }
                     }
                 }
