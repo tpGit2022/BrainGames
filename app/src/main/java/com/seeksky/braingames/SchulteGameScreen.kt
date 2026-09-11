@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -289,7 +290,7 @@ private fun AppHeader(
             }
             Spacer(Modifier.width(10.dp))
             Text(
-                text = "舒尔特表",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )
