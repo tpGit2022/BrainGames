@@ -75,7 +75,7 @@ private enum class GameStatus { Ready, Playing, Finished }
 private data class CellFeedback(val isCorrect: Boolean, val sequence: Long)
 
 @Composable
-fun SchulteGameApp() {
+fun SchulteGameApp(onNavigateBack: () -> Unit) {
     val context = LocalContext.current
     val scoreStore = remember(context) { ScoreStore(context.applicationContext) }
     val coroutineScope = rememberCoroutineScope()
@@ -141,12 +141,21 @@ fun SchulteGameApp() {
         showQuitConfirmation = true
     }
 
+    BackHandler(enabled = status != GameStatus.Playing) {
+        onNavigateBack()
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             AppHeader(
                 isPlaying = status == GameStatus.Playing,
+                onBack = if (status == GameStatus.Playing) {
+                    { showQuitConfirmation = true }
+                } else {
+                    onNavigateBack
+                },
                 onHistoryClick = { showHistory = true },
             )
         },
@@ -255,18 +264,23 @@ fun SchulteGameApp() {
 }
 
 @Composable
-private fun AppHeader(isPlaying: Boolean, onHistoryClick: () -> Unit) {
+private fun AppHeader(
+    isPlaying: Boolean,
+    onBack: () -> Unit,
+    onHistoryClick: () -> Unit,
+) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            TextButton(onClick = onBack) { Text("返回") }
             Surface(
                 modifier = Modifier.size(38.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.primary,
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -281,7 +295,7 @@ private fun AppHeader(isPlaying: Boolean, onHistoryClick: () -> Unit) {
             )
             Spacer(Modifier.weight(1f))
             if (!isPlaying) {
-                TextButton(onClick = onHistoryClick) { Text("训练数据") }
+                TextButton(onClick = onHistoryClick) { Text("数据") }
             }
         }
     }
@@ -606,7 +620,7 @@ private fun ResultDialog(
             }
         },
         confirmButton = { Button(onClick = onPlayAgain) { Text("再来一局") } },
-        dismissButton = { TextButton(onClick = onHome) { Text("返回首页") } },
+        dismissButton = { TextButton(onClick = onHome) { Text("调整难度") } },
     )
 }
 
