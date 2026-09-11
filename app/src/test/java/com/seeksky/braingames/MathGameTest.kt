@@ -65,6 +65,33 @@ class MathGameTest {
         assertFalse(isBetterMathScore(MathBestRecord(7, 10_000L), previous))
     }
 
+    @Test
+    fun scoreCodec_roundTripsValidRecordsAndSkipsInvalidValues() {
+        val records = listOf(
+            MathScoreRecord(MathDifficulty.Easy, 8, 12_300L, 100L),
+            MathScoreRecord(MathDifficulty.Hell, 10, 24_500L, 200L),
+        )
+
+        assertEquals(records, MathScoreCodec.decode(MathScoreCodec.encode(records)))
+        assertTrue(MathScoreCodec.decode("Unknown,8,1000,100;Easy,99,1000,100").isEmpty())
+    }
+
+    @Test
+    fun metricPoints_filterDifficultyAndOrderSessions() {
+        val records = listOf(
+            MathScoreRecord(MathDifficulty.Easy, 9, 9_000L, 300L),
+            MathScoreRecord(MathDifficulty.Hard, 8, 15_000L, 100L),
+            MathScoreRecord(MathDifficulty.Easy, 7, 12_000L, 200L),
+        )
+
+        val points = buildMathMetricPoints(records, MathDifficulty.Easy)
+
+        assertEquals(listOf(1, 2), points.map { it.sessionNumber })
+        assertEquals(listOf(70f, 90f), points.map { it.accuracyPercent })
+        assertEquals(listOf(12f, 9f), points.map { it.secondaryValue })
+        assertEquals(listOf(3f, 1f), points.map { it.errors })
+    }
+
     private fun assertValidOptions(question: MathQuestion) {
         assertEquals(4, question.options.size)
         assertEquals(4, question.options.distinct().size)

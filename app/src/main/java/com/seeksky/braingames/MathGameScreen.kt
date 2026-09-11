@@ -58,6 +58,7 @@ fun MathGameApp(onNavigateBack: () -> Unit) {
     val context = LocalContext.current
     val scoreStore = remember(context) { MathScoreStore(context.applicationContext) }
     val coroutineScope = rememberCoroutineScope()
+    var scores by remember { mutableStateOf(scoreStore.getScores()) }
     var difficulty by remember { mutableStateOf(MathDifficulty.Easy) }
     var status by remember { mutableStateOf(MathGameStatus.Ready) }
     var questions by remember { mutableStateOf(emptyList<MathQuestion>()) }
@@ -68,6 +69,7 @@ fun MathGameApp(onNavigateBack: () -> Unit) {
     var elapsedMillis by remember { mutableLongStateOf(0L) }
     var completedRecord by remember { mutableStateOf<MathBestRecord?>(null) }
     var isNewBest by remember { mutableStateOf(false) }
+    var showData by remember { mutableStateOf(false) }
     var showQuitConfirmation by remember { mutableStateOf(false) }
     var bestRecord by remember(difficulty) { mutableStateOf(scoreStore.getBest(difficulty)) }
 
@@ -91,8 +93,15 @@ fun MathGameApp(onNavigateBack: () -> Unit) {
     fun finishGame(finalCorrectAnswers: Int) {
         val finalElapsed = SystemClock.elapsedRealtime() - startedAt
         val record = MathBestRecord(finalCorrectAnswers, finalElapsed)
+        val score = MathScoreRecord(
+            difficulty = difficulty,
+            correctAnswers = finalCorrectAnswers,
+            elapsedMillis = finalElapsed,
+            completedAtMillis = System.currentTimeMillis(),
+        )
         elapsedMillis = finalElapsed
-        isNewBest = scoreStore.updateBest(difficulty, record)
+        isNewBest = scoreStore.add(score)
+        scores = scoreStore.getScores()
         if (isNewBest) bestRecord = record
         completedRecord = record
         status = MathGameStatus.Finished
@@ -119,6 +128,7 @@ fun MathGameApp(onNavigateBack: () -> Unit) {
                     if (status == MathGameStatus.Playing) showQuitConfirmation = true
                     else onNavigateBack()
                 },
+                onDataClick = { showData = true },
             )
         },
     ) { contentPadding ->
@@ -176,6 +186,18 @@ fun MathGameApp(onNavigateBack: () -> Unit) {
         )
     }
 
+    if (showData) {
+        MathTrainingDataDialog(
+            scores = scores,
+            onDismiss = { showData = false },
+            onClear = {
+                scoreStore.clear()
+                scores = emptyList()
+                bestRecord = null
+            },
+        )
+    }
+
     if (showQuitConfirmation) {
         AlertDialog(
             onDismissRequest = { showQuitConfirmation = false },
@@ -198,6 +220,7 @@ fun MathGameApp(onNavigateBack: () -> Unit) {
 private fun MathHeader(
     isPlaying: Boolean,
     onBack: () -> Unit,
+    onDataClick: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Row(
@@ -215,7 +238,11 @@ private fun MathHeader(
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.size(64.dp))
+            if (isPlaying) {
+                Spacer(Modifier.size(64.dp))
+            } else {
+                TextButton(onClick = onDataClick) { Text("数据") }
+            }
         }
     }
 }

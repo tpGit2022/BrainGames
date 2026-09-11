@@ -58,6 +58,7 @@ fun ReactionGameApp(onNavigateBack: () -> Unit) {
     val context = LocalContext.current
     val scoreStore = remember(context) { ReactionScoreStore(context.applicationContext) }
     val coroutineScope = rememberCoroutineScope()
+    var scores by remember { mutableStateOf(scoreStore.getScores()) }
     var status by remember { mutableStateOf(ReactionGameStatus.Ready) }
     var trials by remember { mutableStateOf(emptyList<ReactionTrial>()) }
     var trialIndex by remember { mutableIntStateOf(0) }
@@ -68,6 +69,7 @@ fun ReactionGameApp(onNavigateBack: () -> Unit) {
     var completedRecord by remember { mutableStateOf<ReactionBestRecord?>(null) }
     var bestRecord by remember { mutableStateOf(scoreStore.getBest()) }
     var isNewBest by remember { mutableStateOf(false) }
+    var showData by remember { mutableStateOf(false) }
     var showQuitConfirmation by remember { mutableStateOf(false) }
 
     fun startGame() {
@@ -93,7 +95,13 @@ fun ReactionGameApp(onNavigateBack: () -> Unit) {
             correctAnswers = finalCorrect,
             averageReactionMillis = finalTotalReactionMillis / REACTION_TRIAL_COUNT,
         )
-        isNewBest = scoreStore.updateBest(record)
+        val score = ReactionScoreRecord(
+            correctAnswers = record.correctAnswers,
+            averageReactionMillis = record.averageReactionMillis,
+            completedAtMillis = System.currentTimeMillis(),
+        )
+        isNewBest = scoreStore.add(score)
+        scores = scoreStore.getScores()
         if (isNewBest) bestRecord = record
         completedRecord = record
         status = ReactionGameStatus.Finished
@@ -119,6 +127,7 @@ fun ReactionGameApp(onNavigateBack: () -> Unit) {
                     if (status == ReactionGameStatus.Playing) showQuitConfirmation = true
                     else onNavigateBack()
                 },
+                onDataClick = { showData = true },
             )
         },
     ) { contentPadding ->
@@ -182,6 +191,18 @@ fun ReactionGameApp(onNavigateBack: () -> Unit) {
         )
     }
 
+    if (showData) {
+        ReactionTrainingDataDialog(
+            scores = scores,
+            onDismiss = { showData = false },
+            onClear = {
+                scoreStore.clear()
+                scores = emptyList()
+                bestRecord = null
+            },
+        )
+    }
+
     if (showQuitConfirmation) {
         AlertDialog(
             onDismissRequest = { showQuitConfirmation = false },
@@ -201,7 +222,11 @@ fun ReactionGameApp(onNavigateBack: () -> Unit) {
 }
 
 @Composable
-private fun ReactionHeader(isPlaying: Boolean, onBack: () -> Unit) {
+private fun ReactionHeader(
+    isPlaying: Boolean,
+    onBack: () -> Unit,
+    onDataClick: () -> Unit,
+) {
     Surface(color = MaterialTheme.colorScheme.background) {
         Row(
             modifier = Modifier
@@ -218,7 +243,11 @@ private fun ReactionHeader(isPlaying: Boolean, onBack: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-            Spacer(Modifier.size(64.dp))
+            if (isPlaying) {
+                Spacer(Modifier.size(64.dp))
+            } else {
+                TextButton(onClick = onDataClick) { Text("数据") }
+            }
         }
     }
 }

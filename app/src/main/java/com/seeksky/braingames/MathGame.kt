@@ -30,6 +30,13 @@ data class MathBestRecord(
     val elapsedMillis: Long,
 )
 
+data class MathScoreRecord(
+    val difficulty: MathDifficulty,
+    val correctAnswers: Int,
+    val elapsedMillis: Long,
+    val completedAtMillis: Long,
+)
+
 fun generateMathQuestion(
     difficulty: MathDifficulty,
     random: Random = Random.Default,
@@ -257,6 +264,24 @@ class MathScoreStore(context: Context) {
         )
     }
 
+    fun getScores(): List<MathScoreRecord> = MathScoreCodec
+        .decode(preferences.getString(KEY_SCORES, null).orEmpty())
+        .sortedByDescending { it.completedAtMillis }
+
+    fun add(score: MathScoreRecord): Boolean {
+        val candidate = MathBestRecord(score.correctAnswers, score.elapsedMillis)
+        val isNewBest = isBetterMathScore(candidate, getBest(score.difficulty))
+        val scores = getScores() + score
+        preferences.edit {
+            putString(KEY_SCORES, MathScoreCodec.encode(scores))
+            if (isNewBest) {
+                putInt("${score.difficulty.name}_correct", score.correctAnswers)
+                putLong("${score.difficulty.name}_elapsed", score.elapsedMillis)
+            }
+        }
+        return isNewBest
+    }
+
     fun updateBest(difficulty: MathDifficulty, candidate: MathBestRecord): Boolean {
         if (!isBetterMathScore(candidate, getBest(difficulty))) return false
         preferences.edit {
@@ -264,5 +289,41 @@ class MathScoreStore(context: Context) {
             putLong("${difficulty.name}_elapsed", candidate.elapsedMillis)
         }
         return true
+    }
+
+    fun clear() {
+        preferences.edit { clear() }
+    }
+
+    private companion object {
+        const val KEY_SCORES = "score_records"
+    }
+}
+
+internal object MathScoreCodec {
+    fun encode(scores: List<MathScoreRecord>): String = scores.joinToString(";") { score ->
+        listOf(
+            score.difficulty.name,
+            score.correctAnswers,
+            score.elapsedMillis,
+            score.completedAtMillis,
+        ).joinToString(",")
+    }
+
+    fun decode(value: String): List<MathScoreRecord> {
+        if (value.isBlank()) return emptyList()
+        return value.split(';').mapNotNull { encodedScore ->
+            val values = encodedScore.split(',')
+            if (values.size != 4) return@mapNotNull null
+            val difficulty = runCatching { MathDifficulty.valueOf(values[0]) }.getOrNull()
+                ?: return@mapNotNull null
+            val correctAnswers = values[1].toIntOrNull() ?: return@mapNotNull null
+            val elapsedMillis = values[2].toLongOrNull() ?: return@mapNotNull null
+            val completedAtMillis = values[3].toLongOrNull() ?: return@mapNotNull null
+            if (correctAnswers !in 0..MATH_QUESTION_COUNT || elapsedMillis < 0L || completedAtMillis < 0L) {
+                return@mapNotNull null
+            }
+            MathScoreRecord(difficulty, correctAnswers, elapsedMillis, completedAtMillis)
+        }
     }
 }

@@ -360,7 +360,7 @@ private fun directionalChangeLabel(
 }
 
 @Composable
-private fun LineChartCard(
+internal fun LineChartCard(
     title: String,
     subtitle: String,
     values: List<Float>,
@@ -396,7 +396,7 @@ private fun LineChartCard(
 }
 
 @Composable
-private fun BarChartCard(
+internal fun BarChartCard(
     title: String,
     subtitle: String,
     values: List<Float>,

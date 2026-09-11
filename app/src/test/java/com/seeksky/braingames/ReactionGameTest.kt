@@ -62,4 +62,30 @@ class ReactionGameTest {
         assertFalse(isBetterReactionScore(ReactionBestRecord(18, 621L), previous))
         assertFalse(isBetterReactionScore(ReactionBestRecord(17, 400L), previous))
     }
+
+    @Test
+    fun scoreCodec_roundTripsValidRecordsAndSkipsInvalidValues() {
+        val records = listOf(
+            ReactionScoreRecord(16, 720L, 100L),
+            ReactionScoreRecord(20, 510L, 200L),
+        )
+
+        assertEquals(records, ReactionScoreCodec.decode(ReactionScoreCodec.encode(records)))
+        assertTrue(ReactionScoreCodec.decode("99,500,100;18,-1,100").isEmpty())
+    }
+
+    @Test
+    fun metricPoints_orderSessionsAndCalculateValues() {
+        val records = listOf(
+            ReactionScoreRecord(18, 500L, 300L),
+            ReactionScoreRecord(15, 800L, 100L),
+        )
+
+        val points = buildReactionMetricPoints(records)
+
+        assertEquals(listOf(1, 2), points.map { it.sessionNumber })
+        assertEquals(listOf(75f, 90f), points.map { it.accuracyPercent })
+        assertEquals(listOf(800f, 500f), points.map { it.secondaryValue })
+        assertEquals(listOf(5f, 2f), points.map { it.errors })
+    }
 }

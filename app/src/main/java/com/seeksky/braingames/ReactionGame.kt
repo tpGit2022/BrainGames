@@ -23,6 +23,12 @@ data class ReactionBestRecord(
     val averageReactionMillis: Long,
 )
 
+data class ReactionScoreRecord(
+    val correctAnswers: Int,
+    val averageReactionMillis: Long,
+    val completedAtMillis: Long,
+)
+
 fun isVowel(letter: Char): Boolean = letter.uppercaseChar() in "AEIOU"
 
 fun createReactionTrial(
@@ -126,6 +132,24 @@ class ReactionScoreStore(context: Context) {
         )
     }
 
+    fun getScores(): List<ReactionScoreRecord> = ReactionScoreCodec
+        .decode(preferences.getString(KEY_SCORES, null).orEmpty())
+        .sortedByDescending { it.completedAtMillis }
+
+    fun add(score: ReactionScoreRecord): Boolean {
+        val candidate = ReactionBestRecord(score.correctAnswers, score.averageReactionMillis)
+        val isNewBest = isBetterReactionScore(candidate, getBest())
+        val scores = getScores() + score
+        preferences.edit {
+            putString(KEY_SCORES, ReactionScoreCodec.encode(scores))
+            if (isNewBest) {
+                putInt(KEY_CORRECT, score.correctAnswers)
+                putLong(KEY_AVERAGE, score.averageReactionMillis)
+            }
+        }
+        return isNewBest
+    }
+
     fun updateBest(candidate: ReactionBestRecord): Boolean {
         if (!isBetterReactionScore(candidate, getBest())) return false
         preferences.edit {
@@ -135,8 +159,42 @@ class ReactionScoreStore(context: Context) {
         return true
     }
 
+    fun clear() {
+        preferences.edit { clear() }
+    }
+
     private companion object {
         const val KEY_CORRECT = "correct_answers"
         const val KEY_AVERAGE = "average_reaction_millis"
+        const val KEY_SCORES = "score_records"
+    }
+}
+
+internal object ReactionScoreCodec {
+    fun encode(scores: List<ReactionScoreRecord>): String = scores.joinToString(";") { score ->
+        listOf(
+            score.correctAnswers,
+            score.averageReactionMillis,
+            score.completedAtMillis,
+        ).joinToString(",")
+    }
+
+    fun decode(value: String): List<ReactionScoreRecord> {
+        if (value.isBlank()) return emptyList()
+        return value.split(';').mapNotNull { encodedScore ->
+            val values = encodedScore.split(',')
+            if (values.size != 3) return@mapNotNull null
+            val correctAnswers = values[0].toIntOrNull() ?: return@mapNotNull null
+            val averageReactionMillis = values[1].toLongOrNull() ?: return@mapNotNull null
+            val completedAtMillis = values[2].toLongOrNull() ?: return@mapNotNull null
+            if (
+                correctAnswers !in 0..REACTION_TRIAL_COUNT ||
+                averageReactionMillis < 0L ||
+                completedAtMillis < 0L
+            ) {
+                return@mapNotNull null
+            }
+            ReactionScoreRecord(correctAnswers, averageReactionMillis, completedAtMillis)
+        }
     }
 }
