@@ -221,7 +221,7 @@ fun SudokuGameApp(onNavigateBack: () -> Unit) {
     }
 
     if (showData) {
-        SudokuDataDialog(
+        SudokuTrainingDataDialog(
             scores = scores,
             onDismiss = { showData = false },
             onClear = {
@@ -605,42 +605,6 @@ private fun SudokuResultDialog(
         },
         confirmButton = { TextButton(onClick = onPlayAgain) { Text("再来一局") } },
         dismissButton = { TextButton(onClick = onSetup) { Text("选择难度") } },
-    )
-}
-
-@Composable
-private fun SudokuDataDialog(
-    scores: List<SudokuScoreRecord>,
-    onDismiss: () -> Unit,
-    onClear: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("数独成绩") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SudokuDifficulty.entries.forEach { difficulty ->
-                    val best = scores
-                        .filter { it.difficulty == difficulty }
-                        .minWithOrNull(compareBy<SudokuScoreRecord> { it.mistakes }.thenBy { it.elapsedMillis })
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(difficulty.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                        Text(
-                            best?.let { "${formatSudokuDuration(it.elapsedMillis)} · 错误 ${it.mistakes}" }
-                                ?: "尚无记录",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                if (scores.isNotEmpty()) {
-                    Text("共完成 ${scores.size} 局", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("完成") } },
-        dismissButton = {
-            if (scores.isNotEmpty()) TextButton(onClick = onClear) { Text("清空数据") }
-        },
     )
 }
 

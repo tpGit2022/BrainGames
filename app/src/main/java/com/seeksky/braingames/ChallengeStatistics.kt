@@ -58,6 +58,20 @@ internal data class ChallengeMetricPoint(
     val completedAtMillis: Long,
 )
 
+internal data class SudokuMetricPoint(
+    val sessionNumber: Int,
+    val elapsedSeconds: Float,
+    val mistakes: Float,
+    val completedAtMillis: Long,
+)
+
+internal data class SlidingPuzzleMetricPoint(
+    val sessionNumber: Int,
+    val moves: Float,
+    val elapsedSeconds: Float,
+    val completedAtMillis: Long,
+)
+
 internal fun buildMathMetricPoints(
     scores: List<MathScoreRecord>,
     difficulty: MathDifficulty,
@@ -84,6 +98,34 @@ internal fun buildReactionMetricPoints(
             accuracyPercent = score.correctAnswers * 100f / REACTION_TRIAL_COUNT,
             secondaryValue = score.averageReactionMillis.toFloat(),
             errors = (REACTION_TRIAL_COUNT - score.correctAnswers).toFloat(),
+            completedAtMillis = score.completedAtMillis,
+        )
+    }
+
+internal fun buildSudokuMetricPoints(
+    scores: List<SudokuScoreRecord>,
+    difficulty: SudokuDifficulty,
+): List<SudokuMetricPoint> = scores
+    .filter { it.difficulty == difficulty }
+    .sortedBy { it.completedAtMillis }
+    .mapIndexed { index, score ->
+        SudokuMetricPoint(
+            sessionNumber = index + 1,
+            elapsedSeconds = score.elapsedMillis / 1_000f,
+            mistakes = score.mistakes.toFloat(),
+            completedAtMillis = score.completedAtMillis,
+        )
+    }
+
+internal fun buildSlidingPuzzleMetricPoints(
+    scores: List<SlidingPuzzleScoreRecord>,
+): List<SlidingPuzzleMetricPoint> = scores
+    .sortedBy { it.completedAtMillis }
+    .mapIndexed { index, score ->
+        SlidingPuzzleMetricPoint(
+            sessionNumber = index + 1,
+            moves = score.moves.toFloat(),
+            elapsedSeconds = score.elapsedMillis / 1_000f,
             completedAtMillis = score.completedAtMillis,
         )
     }
@@ -115,6 +157,36 @@ internal fun ReactionTrainingDataDialog(
         onClear = onClear,
         statisticsContent = { ReactionStatisticsContent(scores) },
         recordsContent = { ReactionRecordsContent(scores) },
+    )
+}
+
+@Composable
+internal fun SudokuTrainingDataDialog(
+    scores: List<SudokuScoreRecord>,
+    onDismiss: () -> Unit,
+    onClear: () -> Unit,
+) {
+    TrainingDataDialog(
+        hasScores = scores.isNotEmpty(),
+        onDismiss = onDismiss,
+        onClear = onClear,
+        statisticsContent = { SudokuStatisticsContent(scores) },
+        recordsContent = { SudokuRecordsContent(scores) },
+    )
+}
+
+@Composable
+internal fun SlidingPuzzleTrainingDataDialog(
+    scores: List<SlidingPuzzleScoreRecord>,
+    onDismiss: () -> Unit,
+    onClear: () -> Unit,
+) {
+    TrainingDataDialog(
+        hasScores = scores.isNotEmpty(),
+        onDismiss = onDismiss,
+        onClear = onClear,
+        statisticsContent = { SlidingPuzzleStatisticsContent(scores) },
+        recordsContent = { SlidingPuzzleRecordsContent(scores) },
     )
 }
 
@@ -279,6 +351,321 @@ private fun ReactionStatisticsContent(scores: List<ReactionScoreRecord>) {
         secondaryFormatter = { "${it.toLong()} 毫秒" },
         secondaryProgressLabel = "反应时间",
     )
+}
+
+@Composable
+private fun SudokuStatisticsContent(scores: List<SudokuScoreRecord>) {
+    val availableDifficulties = remember(scores) {
+        SudokuDifficulty.entries.associateWith { difficulty ->
+            scores.count { it.difficulty == difficulty }
+        }.filterValues { it > 0 }
+    }
+    var selectedDifficultyName by rememberSaveable {
+        mutableStateOf(scores.firstOrNull()?.difficulty?.name ?: SudokuDifficulty.Easy.name)
+    }
+    val selectedDifficulty = selectedDifficultyName
+        .let { name -> SudokuDifficulty.entries.firstOrNull { it.name == name } }
+        ?.takeIf { it in availableDifficulties }
+        ?: scores.firstOrNull()?.difficulty
+
+    if (selectedDifficulty == null) {
+        EmptyChallengeStatistics("完成数独后，这里会展示用时和错误次数的变化。")
+        return
+    }
+
+    val points = remember(scores, selectedDifficulty) {
+        buildSudokuMetricPoints(scores, selectedDifficulty)
+    }
+    val visiblePoints = points.takeLast(MAX_CHALLENGE_CHART_SESSIONS)
+    val first = points.first()
+    val latest = points.last()
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                availableDifficulties.forEach { (difficulty, count) ->
+                    FilterChip(
+                        selected = selectedDifficulty == difficulty,
+                        onClick = { selectedDifficultyName = difficulty.name },
+                        label = { Text("${difficulty.title}  $count") },
+                    )
+                }
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ChallengeSummaryCard(
+                        label = "最近用时",
+                        value = formatSudokuDuration((latest.elapsedSeconds * 1_000).toLong()),
+                        modifier = Modifier.weight(1f),
+                    )
+                    ChallengeSummaryCard(
+                        label = "最近错误",
+                        value = "${latest.mistakes.toInt()} 次",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ChallengeSummaryCard(
+                        label = "平均用时",
+                        value = formatSudokuDuration(
+                            (points.map { it.elapsedSeconds }.average() * 1_000).toLong(),
+                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                    ChallengeSummaryCard(
+                        label = "累计完成",
+                        value = "${points.size} 局",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+        item {
+            PuzzleProgressCard(
+                firstPrimary = first.elapsedSeconds,
+                latestPrimary = latest.elapsedSeconds,
+                primaryLabel = "用时",
+                firstSecondary = first.mistakes,
+                latestSecondary = latest.mistakes,
+                secondaryLabel = "错误",
+                secondaryIsCount = true,
+                sessionCount = points.size,
+            )
+        }
+        item {
+            Text(
+                chartSectionTitle(points.size),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        item {
+            LineChartCard(
+                title = "完成用时",
+                subtitle = "完成当前难度数独的时间，越低越好",
+                values = visiblePoints.map { it.elapsedSeconds },
+                pointNumbers = visiblePoints.map { it.sessionNumber },
+                valueFormatter = { formatSecondsDuration(it) },
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        item {
+            BarChartCard(
+                title = "错误次数",
+                subtitle = "每局输入错误的次数，越低越好",
+                values = visiblePoints.map { it.mistakes },
+                pointNumbers = visiblePoints.map { it.sessionNumber },
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        item {
+            ChartDateFooter(latest.completedAtMillis)
+        }
+    }
+}
+
+@Composable
+private fun SlidingPuzzleStatisticsContent(scores: List<SlidingPuzzleScoreRecord>) {
+    val points = remember(scores) { buildSlidingPuzzleMetricPoints(scores) }
+    if (points.isEmpty()) {
+        EmptyChallengeStatistics("完成数字华容道后，这里会展示步数和用时的变化。")
+        return
+    }
+    val visiblePoints = points.takeLast(MAX_CHALLENGE_CHART_SESSIONS)
+    val first = points.first()
+    val latest = points.last()
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ChallengeSummaryCard(
+                        label = "最近步数",
+                        value = "${latest.moves.toInt()} 步",
+                        modifier = Modifier.weight(1f),
+                    )
+                    ChallengeSummaryCard(
+                        label = "最近用时",
+                        value = formatSlidingPuzzleDuration((latest.elapsedSeconds * 1_000).toLong()),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ChallengeSummaryCard(
+                        label = "平均步数",
+                        value = "${formatChallengeMetric(points.map { it.moves }.average().toFloat(), 1)} 步",
+                        modifier = Modifier.weight(1f),
+                    )
+                    ChallengeSummaryCard(
+                        label = "累计完成",
+                        value = "${points.size} 局",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+        item {
+            PuzzleProgressCard(
+                firstPrimary = first.moves,
+                latestPrimary = latest.moves,
+                primaryLabel = "步数",
+                firstSecondary = first.elapsedSeconds,
+                latestSecondary = latest.elapsedSeconds,
+                secondaryLabel = "用时",
+                sessionCount = points.size,
+            )
+        }
+        item {
+            Text(
+                chartSectionTitle(points.size),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        item {
+            LineChartCard(
+                title = "完成步数",
+                subtitle = "完成每局所用的移动步数，越低越好",
+                values = visiblePoints.map { it.moves },
+                pointNumbers = visiblePoints.map { it.sessionNumber },
+                valueFormatter = { "${it.toInt()} 步" },
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+        item {
+            LineChartCard(
+                title = "完成用时",
+                subtitle = "完成每局所用的时间，越低越好",
+                values = visiblePoints.map { it.elapsedSeconds },
+                pointNumbers = visiblePoints.map { it.sessionNumber },
+                valueFormatter = { formatSecondsDuration(it) },
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        item {
+            ChartDateFooter(latest.completedAtMillis)
+        }
+    }
+}
+
+@Composable
+private fun PuzzleProgressCard(
+    firstPrimary: Float,
+    latestPrimary: Float,
+    primaryLabel: String,
+    firstSecondary: Float,
+    latestSecondary: Float,
+    secondaryLabel: String,
+    secondaryIsCount: Boolean = false,
+    sessionCount: Int,
+) {
+    if (sessionCount < 2) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
+            Text(
+                "再完成一次，就能看到进步分析。",
+                modifier = Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+        return
+    }
+
+    val primaryChange = percentChange(firstPrimary, latestPrimary) ?: 0f
+    val secondaryChange = if (secondaryIsCount) {
+        latestSecondary - firstSecondary
+    } else {
+        percentChange(firstSecondary, latestSecondary) ?: 0f
+    }
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Text("相比第一次", style = MaterialTheme.typography.labelLarge)
+            Text(
+                challengeChangeLabel(
+                    positiveLabel = "$primaryLabel 增加",
+                    negativeLabel = "$primaryLabel 减少",
+                    flatLabel = "$primaryLabel 基本持平",
+                    change = primaryChange,
+                    suffix = "%",
+                ),
+                fontWeight = FontWeight.Bold,
+                color = challengeChangeColor(primaryChange, positiveIsGood = false),
+            )
+            Text(
+                puzzleChangeLabel(
+                    positiveLabel = "$secondaryLabel 增加",
+                    negativeLabel = "$secondaryLabel 减少",
+                    flatLabel = "$secondaryLabel 基本持平",
+                    change = secondaryChange,
+                    suffix = if (secondaryIsCount) " 次" else "%",
+                    decimals = if (secondaryIsCount) 0 else 1,
+                ),
+                fontWeight = FontWeight.Bold,
+                color = challengeChangeColor(secondaryChange, positiveIsGood = false),
+            )
+        }
+    }
+}
+
+private fun puzzleChangeLabel(
+    positiveLabel: String,
+    negativeLabel: String,
+    flatLabel: String,
+    change: Float,
+    suffix: String,
+    decimals: Int,
+): String {
+    if (abs(change) < 0.05f) return flatLabel
+    val label = if (change > 0f) positiveLabel else negativeLabel
+    return "$label ${formatChallengeMetric(abs(change), decimals)}$suffix"
+}
+
+@Composable
+private fun ChartDateFooter(completedAtMillis: Long) {
+    val latestDate = remember(completedAtMillis) {
+        formatChallengeDate(completedAtMillis, "yyyy/MM/dd HH:mm")
+    }
+    Text(
+        "图表按完成时间从左到右排列 · 最近训练 $latestDate",
+        modifier = Modifier.fillMaxWidth(),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
+}
+
+private fun chartSectionTitle(pointCount: Int): String =
+    if (pointCount > MAX_CHALLENGE_CHART_SESSIONS) {
+        "每次训练的变化 · 显示最近 $MAX_CHALLENGE_CHART_SESSIONS 次"
+    } else {
+        "每次训练的变化"
+    }
+
+private fun formatSecondsDuration(seconds: Float): String {
+    val totalSeconds = seconds.toLong().coerceAtLeast(0L)
+    val minutes = totalSeconds / 60
+    val remainingSeconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, remainingSeconds)
 }
 
 @Composable
@@ -580,6 +967,73 @@ private fun ReactionRecordsContent(scores: List<ReactionScoreRecord>) {
                 primary = "${score.correctAnswers} / $REACTION_TRIAL_COUNT",
                 secondary = formatChallengeDate(score.completedAtMillis, "MM/dd HH:mm"),
                 trailing = "平均 ${formatReactionTime(score.averageReactionMillis)}",
+            )
+            if (index != scores.lastIndex) HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun SudokuRecordsContent(scores: List<SudokuScoreRecord>) {
+    var selectedDifficultyName by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedDifficulty = selectedDifficultyName?.let { name ->
+        SudokuDifficulty.entries.firstOrNull { it.name == name }
+    }
+    val filteredScores = remember(scores, selectedDifficulty) {
+        selectedDifficulty?.let { difficulty -> scores.filter { it.difficulty == difficulty } } ?: scores
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedDifficulty == null,
+                onClick = { selectedDifficultyName = null },
+                label = { Text("全部 ${scores.size}") },
+            )
+            SudokuDifficulty.entries.forEach { difficulty ->
+                val count = scores.count { it.difficulty == difficulty }
+                FilterChip(
+                    selected = selectedDifficulty == difficulty,
+                    onClick = { selectedDifficultyName = difficulty.name },
+                    label = { Text("${difficulty.title}  $count") },
+                )
+            }
+        }
+        ChallengeRecordsList(
+            isEmpty = filteredScores.isEmpty(),
+            emptyMessage = if (scores.isEmpty()) "完成一局数独后，成绩会显示在这里。" else "该难度还没有成绩。",
+        ) {
+            itemsIndexed(filteredScores) { index, score ->
+                ChallengeHistoryRow(
+                    badge = score.difficulty.title,
+                    primary = formatSudokuDuration(score.elapsedMillis),
+                    secondary = formatChallengeDate(score.completedAtMillis, "MM/dd HH:mm"),
+                    trailing = "错误 ${score.mistakes} 次",
+                )
+                if (index != filteredScores.lastIndex) HorizontalDivider()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SlidingPuzzleRecordsContent(scores: List<SlidingPuzzleScoreRecord>) {
+    ChallengeRecordsList(
+        isEmpty = scores.isEmpty(),
+        emptyMessage = "完成一局数字华容道后，成绩会显示在这里。",
+    ) {
+        itemsIndexed(scores) { index, score ->
+            ChallengeHistoryRow(
+                badge = "${score.moves}步",
+                primary = formatSlidingPuzzleDuration(score.elapsedMillis),
+                secondary = formatChallengeDate(score.completedAtMillis, "MM/dd HH:mm"),
+                trailing = "完成",
             )
             if (index != scores.lastIndex) HorizontalDivider()
         }

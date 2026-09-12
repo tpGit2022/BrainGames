@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private enum class AppDestination { Home, Schulte, Math, Reaction, Sudoku }
+private enum class AppDestination { Home, Schulte, Math, Reaction, Sudoku, SlidingPuzzle }
 
 @Composable
 fun BrainGamesApp() {
@@ -53,6 +53,7 @@ fun BrainGamesApp() {
             onOpenMath = { destination = AppDestination.Math },
             onOpenReaction = { destination = AppDestination.Reaction },
             onOpenSudoku = { destination = AppDestination.Sudoku },
+            onOpenSlidingPuzzle = { destination = AppDestination.SlidingPuzzle },
         )
 
         AppDestination.Schulte -> SchulteGameApp(
@@ -70,6 +71,10 @@ fun BrainGamesApp() {
         AppDestination.Sudoku -> SudokuGameApp(
             onNavigateBack = { destination = AppDestination.Home },
         )
+
+        AppDestination.SlidingPuzzle -> SlidingPuzzleGameApp(
+            onNavigateBack = { destination = AppDestination.Home },
+        )
     }
 }
 
@@ -79,6 +84,7 @@ private fun GameLibraryScreen(
     onOpenMath: () -> Unit,
     onOpenReaction: () -> Unit,
     onOpenSudoku: () -> Unit,
+    onOpenSlidingPuzzle: () -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -147,6 +153,15 @@ private fun GameLibraryScreen(
                 symbolColor = MaterialTheme.colorScheme.primary,
                 symbolContentColor = MaterialTheme.colorScheme.onPrimary,
                 onClick = onOpenSudoku,
+            )
+            GameCard(
+                symbol = "8",
+                title = "数字华容道",
+                ability = "规划力 · 空间推理",
+                description = "移动空位旁的数字，用尽可能少的步数将 1 至 8 依次归位。",
+                symbolColor = MaterialTheme.colorScheme.tertiary,
+                symbolContentColor = MaterialTheme.colorScheme.onTertiary,
+                onClick = onOpenSlidingPuzzle,
             )
             Spacer(Modifier.height(10.dp))
         }

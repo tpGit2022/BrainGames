@@ -61,4 +61,19 @@ class SudokuGameTest {
         assertEquals(records, SudokuScoreCodec.decode(SudokuScoreCodec.encode(records)))
         assertTrue(SudokuScoreCodec.decode("Unknown,1000,0,100;Easy,-1,0,100").isEmpty())
     }
+
+    @Test
+    fun metricPoints_filterDifficultyAndOrderSessions() {
+        val records = listOf(
+            SudokuScoreRecord(SudokuDifficulty.Easy, 90_000L, 1, 300L),
+            SudokuScoreRecord(SudokuDifficulty.Hard, 180_000L, 3, 100L),
+            SudokuScoreRecord(SudokuDifficulty.Easy, 120_000L, 2, 200L),
+        )
+
+        val points = buildSudokuMetricPoints(records, SudokuDifficulty.Easy)
+
+        assertEquals(listOf(1, 2), points.map { it.sessionNumber })
+        assertEquals(listOf(120f, 90f), points.map { it.elapsedSeconds })
+        assertEquals(listOf(2f, 1f), points.map { it.mistakes })
+    }
 }
