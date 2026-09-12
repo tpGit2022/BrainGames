@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private enum class AppDestination { Home, Schulte, Math, Reaction }
+private enum class AppDestination { Home, Schulte, Math, Reaction, Sudoku }
 
 @Composable
 fun BrainGamesApp() {
@@ -52,6 +52,7 @@ fun BrainGamesApp() {
             onOpenSchulte = { destination = AppDestination.Schulte },
             onOpenMath = { destination = AppDestination.Math },
             onOpenReaction = { destination = AppDestination.Reaction },
+            onOpenSudoku = { destination = AppDestination.Sudoku },
         )
 
         AppDestination.Schulte -> SchulteGameApp(
@@ -65,6 +66,10 @@ fun BrainGamesApp() {
         AppDestination.Reaction -> ReactionGameApp(
             onNavigateBack = { destination = AppDestination.Home },
         )
+
+        AppDestination.Sudoku -> SudokuGameApp(
+            onNavigateBack = { destination = AppDestination.Home },
+        )
     }
 }
 
@@ -73,6 +78,7 @@ private fun GameLibraryScreen(
     onOpenSchulte: () -> Unit,
     onOpenMath: () -> Unit,
     onOpenReaction: () -> Unit,
+    onOpenSudoku: () -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -132,6 +138,15 @@ private fun GameLibraryScreen(
                 symbolColor = MaterialTheme.colorScheme.secondary,
                 symbolContentColor = MaterialTheme.colorScheme.onSecondary,
                 onClick = onOpenReaction,
+            )
+            GameCard(
+                symbol = "9",
+                title = "数独",
+                ability = "逻辑力 · 空间推理",
+                description = "在行、列和九宫格的约束中逐步排除，找出唯一答案。",
+                symbolColor = MaterialTheme.colorScheme.primary,
+                symbolContentColor = MaterialTheme.colorScheme.onPrimary,
+                onClick = onOpenSudoku,
             )
             Spacer(Modifier.height(10.dp))
         }
