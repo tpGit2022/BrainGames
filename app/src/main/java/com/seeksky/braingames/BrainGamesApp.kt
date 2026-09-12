@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private enum class AppDestination { Home, Schulte, Math, Reaction, Sudoku, SlidingPuzzle, Tower, Sokoban }
+private enum class AppDestination { Home, Schulte, Math, Reaction, Sudoku, SlidingPuzzle, Game2048, Tower, Sokoban }
 
 @Composable
 fun BrainGamesApp() {
@@ -54,6 +54,7 @@ fun BrainGamesApp() {
             onOpenReaction = { destination = AppDestination.Reaction },
             onOpenSudoku = { destination = AppDestination.Sudoku },
             onOpenSlidingPuzzle = { destination = AppDestination.SlidingPuzzle },
+            onOpen2048 = { destination = AppDestination.Game2048 },
             onOpenTower = { destination = AppDestination.Tower },
             onOpenSokoban = { destination = AppDestination.Sokoban },
         )
@@ -78,6 +79,10 @@ fun BrainGamesApp() {
             onNavigateBack = { destination = AppDestination.Home },
         )
 
+        AppDestination.Game2048 -> Game2048App(
+            onNavigateBack = { destination = AppDestination.Home },
+        )
+
         AppDestination.Tower -> TowerGameApp(
             onNavigateBack = { destination = AppDestination.Home },
         )
@@ -95,6 +100,7 @@ private fun GameLibraryScreen(
     onOpenReaction: () -> Unit,
     onOpenSudoku: () -> Unit,
     onOpenSlidingPuzzle: () -> Unit,
+    onOpen2048: () -> Unit,
     onOpenTower: () -> Unit,
     onOpenSokoban: () -> Unit,
 ) {
@@ -174,6 +180,15 @@ private fun GameLibraryScreen(
                 symbolColor = MaterialTheme.colorScheme.tertiary,
                 symbolContentColor = MaterialTheme.colorScheme.onTertiary,
                 onClick = onOpenSlidingPuzzle,
+            )
+            GameCard(
+                symbol = "2K",
+                title = "2048",
+                ability = "策略力 · 数字规划",
+                description = "滑动合并相同数字，提前留出空间，向 2048 发起挑战。",
+                symbolColor = MaterialTheme.colorScheme.secondary,
+                symbolContentColor = MaterialTheme.colorScheme.onSecondary,
+                onClick = onOpen2048,
             )
             GameCard(
                 symbol = "塔",
