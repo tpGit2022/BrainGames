@@ -1,0 +1,10 @@
+Tiny Dungeon 1.0
+
+Created and distributed by Kenney (https://kenney.nl)
+Source: https://kenney.nl/assets/tiny-dungeon
+
+License: Creative Commons Zero (CC0 1.0 Universal)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The tower game uses selected 16x16 tiles from this pack. Door and gem color
+variants were derived from the original CC0 tiles for this project.

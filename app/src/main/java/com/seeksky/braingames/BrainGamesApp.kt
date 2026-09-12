@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private enum class AppDestination { Home, Schulte, Math, Reaction, Sudoku, SlidingPuzzle }
+private enum class AppDestination { Home, Schulte, Math, Reaction, Sudoku, SlidingPuzzle, Tower, Sokoban }
 
 @Composable
 fun BrainGamesApp() {
@@ -54,6 +54,8 @@ fun BrainGamesApp() {
             onOpenReaction = { destination = AppDestination.Reaction },
             onOpenSudoku = { destination = AppDestination.Sudoku },
             onOpenSlidingPuzzle = { destination = AppDestination.SlidingPuzzle },
+            onOpenTower = { destination = AppDestination.Tower },
+            onOpenSokoban = { destination = AppDestination.Sokoban },
         )
 
         AppDestination.Schulte -> SchulteGameApp(
@@ -75,6 +77,14 @@ fun BrainGamesApp() {
         AppDestination.SlidingPuzzle -> SlidingPuzzleGameApp(
             onNavigateBack = { destination = AppDestination.Home },
         )
+
+        AppDestination.Tower -> TowerGameApp(
+            onNavigateBack = { destination = AppDestination.Home },
+        )
+
+        AppDestination.Sokoban -> SokobanGameApp(
+            onNavigateBack = { destination = AppDestination.Home },
+        )
     }
 }
 
@@ -85,6 +95,8 @@ private fun GameLibraryScreen(
     onOpenReaction: () -> Unit,
     onOpenSudoku: () -> Unit,
     onOpenSlidingPuzzle: () -> Unit,
+    onOpenTower: () -> Unit,
+    onOpenSokoban: () -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -162,6 +174,24 @@ private fun GameLibraryScreen(
                 symbolColor = MaterialTheme.colorScheme.tertiary,
                 symbolContentColor = MaterialTheme.colorScheme.onTertiary,
                 onClick = onOpenSlidingPuzzle,
+            )
+            GameCard(
+                symbol = "塔",
+                title = "魔塔",
+                ability = "策略力 · 资源规划",
+                description = "计算战斗损伤，收集钥匙与装备，在五层地牢中规划通往魔王的路线。",
+                symbolColor = MaterialTheme.colorScheme.secondary,
+                symbolContentColor = MaterialTheme.colorScheme.onSecondary,
+                onClick = onOpenTower,
+            )
+            GameCard(
+                symbol = "箱",
+                title = "推箱子",
+                ability = "规划力 · 空间推理",
+                description = "规划搬运路线，把所有木箱推到标记位置，小心别让箱子困在墙角。",
+                symbolColor = MaterialTheme.colorScheme.primary,
+                symbolContentColor = MaterialTheme.colorScheme.onPrimary,
+                onClick = onOpenSokoban,
             )
             Spacer(Modifier.height(10.dp))
         }

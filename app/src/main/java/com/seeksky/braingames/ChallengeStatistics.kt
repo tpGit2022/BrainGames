@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,6 +68,14 @@ internal data class SudokuMetricPoint(
 
 internal data class SlidingPuzzleMetricPoint(
     val sessionNumber: Int,
+    val moves: Float,
+    val elapsedSeconds: Float,
+    val completedAtMillis: Long,
+)
+
+internal data class SokobanMetricPoint(
+    val sessionNumber: Int,
+    val pushes: Float,
     val moves: Float,
     val elapsedSeconds: Float,
     val completedAtMillis: Long,
@@ -130,6 +139,22 @@ internal fun buildSlidingPuzzleMetricPoints(
         )
     }
 
+internal fun buildSokobanMetricPoints(
+    scores: List<SokobanScoreRecord>,
+    levelNumber: Int,
+): List<SokobanMetricPoint> = scores
+    .filter { it.levelNumber == levelNumber }
+    .sortedBy { it.completedAtMillis }
+    .mapIndexed { index, score ->
+        SokobanMetricPoint(
+            sessionNumber = index + 1,
+            pushes = score.pushes.toFloat(),
+            moves = score.moves.toFloat(),
+            elapsedSeconds = score.elapsedMillis / 1_000f,
+            completedAtMillis = score.completedAtMillis,
+        )
+    }
+
 @Composable
 internal fun MathTrainingDataDialog(
     scores: List<MathScoreRecord>,
@@ -187,6 +212,21 @@ internal fun SlidingPuzzleTrainingDataDialog(
         onClear = onClear,
         statisticsContent = { SlidingPuzzleStatisticsContent(scores) },
         recordsContent = { SlidingPuzzleRecordsContent(scores) },
+    )
+}
+
+@Composable
+internal fun SokobanTrainingDataDialog(
+    scores: List<SokobanScoreRecord>,
+    onDismiss: () -> Unit,
+    onClear: () -> Unit,
+) {
+    TrainingDataDialog(
+        hasScores = scores.isNotEmpty(),
+        onDismiss = onDismiss,
+        onClear = onClear,
+        statisticsContent = { SokobanStatisticsContent(scores) },
+        recordsContent = { SokobanRecordsContent(scores) },
     )
 }
 
@@ -559,6 +599,116 @@ private fun SlidingPuzzleStatisticsContent(scores: List<SlidingPuzzleScoreRecord
         }
         item {
             ChartDateFooter(latest.completedAtMillis)
+        }
+    }
+}
+
+@Composable
+private fun SokobanStatisticsContent(scores: List<SokobanScoreRecord>) {
+    var selectedLevel by rememberSaveable(scores) {
+        mutableIntStateOf(scores.firstOrNull()?.levelNumber ?: 1)
+    }
+    val points = remember(scores, selectedLevel) {
+        buildSokobanMetricPoints(scores, selectedLevel)
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SOKOBAN_LEVELS.forEach { level ->
+                val count = scores.count { it.levelNumber == level.number }
+                FilterChip(
+                    selected = selectedLevel == level.number,
+                    onClick = { selectedLevel = level.number },
+                    label = { Text("第${level.number}关  $count") },
+                )
+            }
+        }
+
+        if (points.isEmpty()) {
+            EmptyChallengeStatistics("完成第 $selectedLevel 关后，这里会展示推动、步数和用时的变化。")
+            return@Column
+        }
+
+        val visiblePoints = points.takeLast(MAX_CHALLENGE_CHART_SESSIONS)
+        val first = points.first()
+        val latest = points.last()
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ChallengeSummaryCard("最近推动", "${latest.pushes.toInt()} 次", Modifier.weight(1f))
+                        ChallengeSummaryCard("最近步数", "${latest.moves.toInt()} 步", Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ChallengeSummaryCard(
+                            "平均推动",
+                            "${formatChallengeMetric(points.map { it.pushes }.average().toFloat(), 1)} 次",
+                            Modifier.weight(1f),
+                        )
+                        ChallengeSummaryCard("累计完成", "${points.size} 局", Modifier.weight(1f))
+                    }
+                }
+            }
+            item {
+                PuzzleProgressCard(
+                    firstPrimary = first.pushes,
+                    latestPrimary = latest.pushes,
+                    primaryLabel = "推动次数",
+                    firstSecondary = first.moves,
+                    latestSecondary = latest.moves,
+                    secondaryLabel = "移动步数",
+                    secondaryIsCount = true,
+                    sessionCount = points.size,
+                )
+            }
+            item {
+                Text(
+                    chartSectionTitle(points.size),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            item {
+                LineChartCard(
+                    title = "推动次数",
+                    subtitle = "推动箱子的次数，越低说明路线越精炼",
+                    values = visiblePoints.map { it.pushes },
+                    pointNumbers = visiblePoints.map { it.sessionNumber },
+                    valueFormatter = { "${it.toInt()} 次" },
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
+            item {
+                LineChartCard(
+                    title = "移动步数",
+                    subtitle = "完成关卡的总移动步数，越低越好",
+                    values = visiblePoints.map { it.moves },
+                    pointNumbers = visiblePoints.map { it.sessionNumber },
+                    valueFormatter = { "${it.toInt()} 步" },
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            item {
+                LineChartCard(
+                    title = "完成用时",
+                    subtitle = "每次完成同一关卡所用的时间",
+                    values = visiblePoints.map { it.elapsedSeconds },
+                    pointNumbers = visiblePoints.map { it.sessionNumber },
+                    valueFormatter = { formatSecondsDuration(it) },
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            item { ChartDateFooter(latest.completedAtMillis) }
         }
     }
 }
@@ -1036,6 +1186,56 @@ private fun SlidingPuzzleRecordsContent(scores: List<SlidingPuzzleScoreRecord>) 
                 trailing = "完成",
             )
             if (index != scores.lastIndex) HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun SokobanRecordsContent(scores: List<SokobanScoreRecord>) {
+    var selectedLevel by rememberSaveable { mutableStateOf<Int?>(null) }
+    val filteredScores = remember(scores, selectedLevel) {
+        selectedLevel?.let { level -> scores.filter { it.levelNumber == level } } ?: scores
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedLevel == null,
+                onClick = { selectedLevel = null },
+                label = { Text("全部 ${scores.size}") },
+            )
+            SOKOBAN_LEVELS.forEach { level ->
+                val count = scores.count { it.levelNumber == level.number }
+                FilterChip(
+                    selected = selectedLevel == level.number,
+                    onClick = { selectedLevel = level.number },
+                    label = { Text("第${level.number}关  $count") },
+                )
+            }
+        }
+        ChallengeRecordsList(
+            isEmpty = filteredScores.isEmpty(),
+            emptyMessage = if (scores.isEmpty()) {
+                "完成一关推箱子后，成绩会显示在这里。"
+            } else {
+                "该关卡还没有完成记录。"
+            },
+        ) {
+            itemsIndexed(filteredScores) { index, score ->
+                ChallengeHistoryRow(
+                    badge = "第${score.levelNumber}关",
+                    primary = "${score.pushes} 推 / ${score.moves} 步",
+                    secondary = formatChallengeDate(score.completedAtMillis, "MM/dd HH:mm"),
+                    trailing = formatSokobanDuration(score.elapsedMillis),
+                )
+                if (index != filteredScores.lastIndex) HorizontalDivider()
+            }
         }
     }
 }
